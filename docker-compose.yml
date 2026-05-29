@@ -1,0 +1,107 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    ports:
+      - "3010:3000"
+    environment:
+      - PORT=3000
+      - PORTFOLIO_SERVICE_URL=http://portfolio:3001
+      - NOTIFICATION_SERVICE_URL=http://notification:3002
+    depends_on:
+      portfolio:
+        condition: service_started
+      notification:
+        condition: service_started
+    networks:
+      - app-network
+
+  portfolio:
+    build:
+      context: .
+      dockerfile: services/portfolio/Dockerfile
+    ports:
+      - "3011:3001"
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgresql://user:password@postgres:5432/portfolio?schema=public
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  notification:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+    ports:
+      - "3012:3002"
+    environment:
+      - PORT=3002
+      - DATABASE_URL=postgresql://user:password@postgres:5432/notification?schema=public
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+volumes:
+  postgres-data:
+
+networks:
+  app-network:
+    driver: bridge
