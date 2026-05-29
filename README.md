@@ -40,3 +40,6 @@
    ```
 
 -`docker compose down -v` to clean up the containers and volumes. 
+
+
+<img width="1919" height="1079" alt="Screenshot 2026-05-29 125255" src="https://github.com/user-attachments/assets/c0e95809-eac4-4007-9fdc-c5866f17c502" />
